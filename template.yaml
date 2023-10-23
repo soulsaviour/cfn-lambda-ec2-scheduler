@@ -1,0 +1,55 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Starts and stops EC2 instances tagged Schedule=<value>.
+
+Parameters:
+  TagValue:
+    Type: String
+    Default: office-hours
+    Description: Instances tagged Schedule=<this value> are managed by the scheduler.
+
+Resources:
+  FunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: ec2-start-stop
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ec2:DescribeInstances
+                  - ec2:StartInstances
+                  - ec2:StopInstances
+                Resource: "*"
+
+  SchedulerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Starts or stops EC2 instances tagged for the schedule.
+      Runtime: python3.13
+      Architectures:
+        - arm64
+      Handler: scheduler.handler
+      Code: src/
+      Role: !GetAtt FunctionRole.Arn
+      Timeout: 120
+      MemorySize: 128
+      Environment:
+        Variables:
+          TAG_VALUE: !Ref TagValue
+
+Outputs:
+  FunctionName:
+    Value: !Ref SchedulerFunction
+  FunctionArn:
+    Value: !GetAtt SchedulerFunction.Arn

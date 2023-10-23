@@ -1,0 +1,4 @@
+# W3002: Code points at a local directory, which `aws cloudformation package`
+# uploads to S3 and rewrites. That's intended here.
+ignore_checks:
+  - W3002
