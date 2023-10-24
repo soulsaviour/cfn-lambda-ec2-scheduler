@@ -7,6 +7,21 @@ Parameters:
     Default: office-hours
     Description: Instances tagged Schedule=<this value> are managed by the scheduler.
 
+  StopScheduleExpression:
+    Type: String
+    Default: cron(0 20 ? * MON-FRI *)
+    Description: When to stop instances, as an EventBridge Scheduler expression.
+
+  StartScheduleExpression:
+    Type: String
+    Default: cron(0 8 ? * MON-FRI *)
+    Description: When to start instances, as an EventBridge Scheduler expression.
+
+  Timezone:
+    Type: String
+    Default: Asia/Kolkata
+    Description: IANA time zone the schedule expressions are evaluated in.
+
 Resources:
   FunctionRole:
     Type: AWS::IAM::Role
@@ -47,6 +62,60 @@ Resources:
       Environment:
         Variables:
           TAG_VALUE: !Ref TagValue
+
+  # EventBridge Scheduler, unlike EventBridge rules, evaluates cron in a local
+  # time zone, so "8 AM" stays 8 AM across daylight saving changes.
+  SchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+      Policies:
+        - PolicyName: invoke-scheduler-function
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt SchedulerFunction.Arn
+
+  StopSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Description: Stop instances tagged for the schedule
+      ScheduleExpression: !Ref StopScheduleExpression
+      ScheduleExpressionTimezone: !Ref Timezone
+      FlexibleTimeWindow:
+        Mode: "OFF"
+      Target:
+        Arn: !GetAtt SchedulerFunction.Arn
+        RoleArn: !GetAtt SchedulerRole.Arn
+        Input: '{"action": "stop"}'
+        RetryPolicy:
+          MaximumRetryAttempts: 2
+
+  StartSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Description: Start instances tagged for the schedule
+      ScheduleExpression: !Ref StartScheduleExpression
+      ScheduleExpressionTimezone: !Ref Timezone
+      FlexibleTimeWindow:
+        Mode: "OFF"
+      Target:
+        Arn: !GetAtt SchedulerFunction.Arn
+        RoleArn: !GetAtt SchedulerRole.Arn
+        Input: '{"action": "start"}'
+        RetryPolicy:
+          MaximumRetryAttempts: 2
 
 Outputs:
   FunctionName:
