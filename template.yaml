@@ -40,12 +40,21 @@ Resources:
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
-              - Effect: Allow
+              - Sid: FindInstances
+                Effect: Allow
+                Action: ec2:DescribeInstances
+                Resource: "*"
+              # The function can only start or stop instances that carry the
+              # schedule tag, even if it is invoked with something unexpected.
+              - Sid: StartStopTaggedInstances
+                Effect: Allow
                 Action:
-                  - ec2:DescribeInstances
                   - ec2:StartInstances
                   - ec2:StopInstances
-                Resource: "*"
+                Resource: !Sub arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/*
+                Condition:
+                  StringEquals:
+                    aws:ResourceTag/Schedule: !Ref TagValue
 
   SchedulerFunction:
     Type: AWS::Lambda::Function
