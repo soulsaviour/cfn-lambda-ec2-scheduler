@@ -69,6 +69,15 @@ def test_dry_run_changes_nothing(ec2, monkeypatch):
     assert state(ec2, tagged[0]) == "running"
 
 
+def test_dry_run_can_be_requested_per_invocation(ec2):
+    tagged = launch(ec2, schedule="office-hours")
+
+    result = scheduler.handler({"action": "stop", "dry_run": True}, ec2=ec2)
+
+    assert result["dry_run"] is True
+    assert state(ec2, tagged[0]) == "running"
+
+
 def test_handles_more_instances_than_one_batch(ec2):
     tagged = launch(ec2, scheduler.BATCH_SIZE + 10, schedule="office-hours")
 

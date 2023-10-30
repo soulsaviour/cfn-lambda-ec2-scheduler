@@ -1,7 +1,8 @@
 """Start or stop EC2 instances tagged Schedule=<TAG_VALUE>.
 
 Invoked by EventBridge Scheduler with {"action": "start"} or {"action": "stop"}.
-Set DRY_RUN=true to log what would happen without touching any instance.
+To log what would happen without touching any instance, set DRY_RUN=true on
+the function or pass "dry_run": true in the event.
 """
 
 import json
@@ -44,7 +45,7 @@ def handler(event, context=None, ec2=None):
     if action not in ACTIONABLE_STATE:
         raise ValueError(f"action must be 'start' or 'stop', got {action!r}")
 
-    dry_run = os.environ.get("DRY_RUN", "false").lower() == "true"
+    dry_run = event.get("dry_run", os.environ.get("DRY_RUN", "false").lower() == "true")
     ec2 = ec2 or boto3.client("ec2")
 
     instance_ids = find_instances(ec2, os.environ["TAG_VALUE"], ACTIONABLE_STATE[action])

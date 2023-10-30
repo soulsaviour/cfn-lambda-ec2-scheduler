@@ -25,10 +25,8 @@ deploy: package
 
 # See what a stop would do right now, without stopping anything.
 invoke-dry-run:
-	@fn=$$(aws cloudformation describe-stacks --region $(REGION) --stack-name $(STACK) \
-	  --query "Stacks[0].Outputs[?OutputKey==`FunctionName`].OutputValue" --output text); \
-	aws lambda update-function-configuration --region $(REGION) --function-name $$fn \
-	  --environment "Variables={TAG_VALUE=$$(aws lambda get-function-configuration --region $(REGION) --function-name $$fn --query Environment.Variables.TAG_VALUE --output text),DRY_RUN=true}" >/dev/null; \
-	aws lambda wait function-updated --region $(REGION) --function-name $$fn; \
-	aws lambda invoke --region $(REGION) --function-name $$fn --payload "{\"action\":\"stop\"}" \
-	  --cli-binary-format raw-in-base64-out /dev/stdout
+	aws lambda invoke --region $(REGION) \
+	  --function-name $$(aws cloudformation describe-stacks --region $(REGION) --stack-name $(STACK) \
+	    --query 'Stacks[0].Outputs[?OutputKey==`FunctionName`].OutputValue' --output text) \
+	  --cli-binary-format raw-in-base64-out \
+	  --payload '{"action": "stop", "dry_run": true}' /dev/stdout
